@@ -286,6 +286,119 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
     # Print correct total time using cumulative_time
     print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
 
+def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
+    import time
+    import sys
+    mines = [node for node in node_capacities if node != dump_site]
+    initial_state = tuple(node_capacities[mine] for mine in mines)
+    memo = {}
+    choice = {}
+
+    def dp(state, truck_location):
+        key = (state, truck_location)
+        if key in memo:
+            return memo[key]
+        if all(coal == 0 for coal in state):
+            if truck_location == dump_site:
+                memo[key] = 0
+                choice[key] = None
+                return 0
+            else:
+                t, _ = dijkstra(adjacency, truck_location, dump_site)
+                memo[key] = t
+                choice[key] = ([], [], [truck_location, dump_site], t)
+                return t
+        min_time = float('inf')
+        best_trip = None
+        for r in range(1, len(mines)+1):
+            for combo in itertools.combinations([i for i, coal in enumerate(state) if coal > 0], r):
+                coal_to_pick = [min(state[i], truck_capacity) for i in combo]
+                if sum(coal_to_pick) > truck_capacity:
+                    continue
+                for order in itertools.permutations(combo):
+                    route = [truck_location] + [mines[i] for i in order] + [dump_site]
+                    time_trip = 0
+                    for i in range(len(route)-1):
+                        t, _ = dijkstra(adjacency, route[i], route[i+1])
+                        time_trip += t
+                    new_state = list(state)
+                    remaining_capacity = truck_capacity
+                    for i in order:
+                        take = min(new_state[i], remaining_capacity)
+                        remaining_capacity -= take
+                        new_state[i] -= take
+                    total_time = time_trip + dp(tuple(new_state), dump_site)
+                    if total_time < min_time:
+                        min_time = total_time
+                        best_trip = (order, [mines[i] for i in order], route, time_trip)
+        memo[key] = min_time
+        choice[key] = best_trip
+        return min_time
+
+    dp(initial_state, dump_site)
+    state = initial_state
+    truck_location = dump_site
+    trip_num = 1
+    cumulative_time = 0
+    while not all(coal == 0 for coal in state):
+        key = (state, truck_location)
+        best_trip = choice[key]
+        if best_trip is None:
+            break
+        order, mines_order, route, trip_time = best_trip
+        trip_mines = [mines[i] for i in order]
+        remaining_capacity = truck_capacity
+        new_state = list(state)
+        collected_this_trip = 0
+        print(f"\nTrip {trip_num}: Truck route: {' -> '.join([dump_site] + trip_mines + [trip_mines[0], dump_site])}")
+        for idx, mine in enumerate(trip_mines):
+            t, path = dijkstra(adjacency, truck_location, mine)
+            bar_length = 20
+            for sec in range(1, t+1):
+                progress = int((sec/t)*bar_length)
+                percent = int((sec/t)*100)
+                bar = '#' * progress + ' ' * (bar_length-progress)
+                sys.stdout.write(f"\rTruck 1 | Moving: {truck_location} -> {mine} | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
+                sys.stdout.flush()
+                time.sleep(1)
+            sys.stdout.write('\n')
+            take = min(new_state[order[idx]], remaining_capacity)
+            for sec in range(1, 6):
+                progress = int((sec/5)*bar_length)
+                percent = int((sec/5)*100)
+                bar = '#' * progress + ' ' * (bar_length-progress)
+                sys.stdout.write(f"\rTruck 1 | Loading at {mine} | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
+                sys.stdout.flush()
+                time.sleep(1)
+            sys.stdout.write(f"\nTruck loaded {take}kg coal at {mine}\n")
+            remaining_capacity -= take
+            new_state[order[idx]] -= take
+            collected_this_trip += take
+            truck_location = mine
+        t, path = dijkstra(adjacency, truck_location, dump_site)
+        for sec in range(1, t+1):
+            progress = int((sec/t)*bar_length)
+            percent = int((sec/t)*100)
+            bar = '#' * progress + ' ' * (bar_length-progress)
+            sys.stdout.write(f"\rTruck 1 | Moving: {truck_location} -> Dump_site | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
+            sys.stdout.flush()
+            time.sleep(1)
+        sys.stdout.write('\n')
+        for sec in range(1, 6):
+            progress = int((sec/5)*bar_length)
+            percent = int((sec/5)*100)
+            bar = '#' * progress + ' ' * (bar_length-progress)
+            sys.stdout.write(f"\rTruck 1 | Unloading at Dump_site | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
+            sys.stdout.flush()
+            time.sleep(1)
+        sys.stdout.write(f"\nTruck unloaded at Dump_site: Collected: {collected_this_trip}kg\n")
+        cumulative_time += trip_time + 5*len(trip_mines) + 5
+        print(f"Current Time: {cumulative_time}s\n")
+        truck_location = dump_site
+        state = tuple(new_state)
+        trip_num += 1
+    print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
+
 # --- Run DP-based optimizer with procedure ---
 if __name__ == "__main__":
     print("Choose mode:")
@@ -297,7 +410,6 @@ if __name__ == "__main__":
         dp_min_time_with_procedure(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
     elif mode == "2":
         print("--- Realtime progress mode selected ---")
-        # Placeholder for realtime method, to be implemented next
-        # You can define: realtime_progress(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
+        realtime_progress(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
     else:
         print("Invalid option. Please run again and select 1 or 2.")
