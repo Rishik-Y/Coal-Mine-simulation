@@ -286,6 +286,21 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
     # Print correct total time using cumulative_time
     print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
 
+def print_truck_table(truck_id, status, progress, percent, capacity):
+    bar_length = 22
+    bar = '#' * progress + '_' * (bar_length - progress)
+    table = f"""
++----------------------+----------------------+
+| Truck {truck_id:<3}                                   |
+| Status: {status:<22}              |
+| Progress: {percent:3}% [{bar}]     |
+| Current Capacity: {capacity:<5}Kg                   |
++----------------------+----------------------+
+"""
+    # Clear screen and move cursor to top-left
+    print('\033[H\033[J', end='')
+    print(table, end='')
+
 def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
     import time
     import sys
@@ -340,6 +355,8 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
     truck_location = dump_site
     trip_num = 1
     cumulative_time = 0
+    # Print initial empty table
+    print('\n' * 6)
     while not all(coal == 0 for coal in state):
         key = (state, truck_location)
         best_trip = choice[key]
@@ -350,54 +367,40 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
         remaining_capacity = truck_capacity
         new_state = list(state)
         collected_this_trip = 0
-        print(f"\nTrip {trip_num}: Truck route: {' -> '.join([dump_site] + trip_mines + [trip_mines[0], dump_site])}")
         for idx, mine in enumerate(trip_mines):
             t, path = dijkstra(adjacency, truck_location, mine)
-            bar_length = 20
             for sec in range(1, t+1):
-                progress = int((sec/t)*bar_length)
+                progress = int((sec/t)*22)
                 percent = int((sec/t)*100)
-                bar = '#' * progress + ' ' * (bar_length-progress)
-                sys.stdout.write(f"\rTruck 1 | Moving: {truck_location} -> {mine} | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
-                sys.stdout.flush()
+                print_truck_table(1, f"Route: {truck_location} -> {mine}", progress, percent, remaining_capacity)
                 time.sleep(1)
-            sys.stdout.write('\n')
             take = min(new_state[order[idx]], remaining_capacity)
             for sec in range(1, 6):
-                progress = int((sec/5)*bar_length)
+                progress = int((sec/5)*22)
                 percent = int((sec/5)*100)
-                bar = '#' * progress + ' ' * (bar_length-progress)
-                sys.stdout.write(f"\rTruck 1 | Loading at {mine} | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
-                sys.stdout.flush()
+                print_truck_table(1, f"Loading coal {mine}", progress, percent, remaining_capacity)
                 time.sleep(1)
-            sys.stdout.write(f"\nTruck loaded {take}kg coal at {mine}\n")
             remaining_capacity -= take
             new_state[order[idx]] -= take
             collected_this_trip += take
             truck_location = mine
         t, path = dijkstra(adjacency, truck_location, dump_site)
         for sec in range(1, t+1):
-            progress = int((sec/t)*bar_length)
+            progress = int((sec/t)*22)
             percent = int((sec/t)*100)
-            bar = '#' * progress + ' ' * (bar_length-progress)
-            sys.stdout.write(f"\rTruck 1 | Moving: {truck_location} -> Dump_site | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
-            sys.stdout.flush()
+            print_truck_table(1, f"Route: {truck_location} -> Dump_site", progress, percent, remaining_capacity)
             time.sleep(1)
-        sys.stdout.write('\n')
         for sec in range(1, 6):
-            progress = int((sec/5)*bar_length)
+            progress = int((sec/5)*22)
             percent = int((sec/5)*100)
-            bar = '#' * progress + ' ' * (bar_length-progress)
-            sys.stdout.write(f"\rTruck 1 | Unloading at Dump_site | Progress: {percent}% [{bar}] | Current Capacity: {remaining_capacity}Kg   ")
-            sys.stdout.flush()
+            print_truck_table(1, f"Unloading Coal", progress, percent, remaining_capacity)
             time.sleep(1)
-        sys.stdout.write(f"\nTruck unloaded at Dump_site: Collected: {collected_this_trip}kg\n")
         cumulative_time += trip_time + 5*len(trip_mines) + 5
-        print(f"Current Time: {cumulative_time}s\n")
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
-    print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
+    print_truck_table(1, "All mines depleted", 22, 100, 0)
+    print(f"\nAll mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
 
 # --- Run DP-based optimizer with procedure ---
 if __name__ == "__main__":
