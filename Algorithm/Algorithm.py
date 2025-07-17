@@ -260,22 +260,44 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
             print(f"{truck_location} -> {mine}: Time Taken: {t}s,")
             take = min(new_state[order[idx]], remaining_capacity)
             print(f"Truck loaded {take}kg coal at {mine}")
+            # Add load time
+            t_load = 5
+            print(f"Loading time at {mine}: {t_load}s")
+            t += t_load
+            cumulative_time += t_load
             remaining_capacity -= take
             new_state[order[idx]] -= take
             collected_this_trip += take
             truck_location = mine
         # Final leg: from last mine to dump_site, via first mine if needed
         t, path = dijkstra(adjacency, truck_location, dump_site)
-        # Print the full path from last mine to dump_site
         print(f"{truck_location} -> {' -> '.join(path[1:])}: Time Taken: {t}s")
+        # Add unload time
+        t_unload = 5
         print(f"Truck unloaded at {dump_site}: Collected: {collected_this_trip}kg")
+        print(f"Unloading time at {dump_site}: {t_unload}s")
+        t += t_unload
+        cumulative_time += t_unload
         cumulative_time += trip_time
         print(f"Current Time: {cumulative_time}s\n")
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
-    print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {min_total_time}s.")
+    # Print correct total time using cumulative_time
+    print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
 
 # --- Run DP-based optimizer with procedure ---
-dp_node_capacities = copy.deepcopy(node_capacities)
-dp_min_time_with_procedure(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
+if __name__ == "__main__":
+    print("Choose mode:")
+    print("1. Direct solution (minimal time, full procedure)")
+    print("2. Realtime progress (step-by-step)")
+    mode = input("Enter 1 for Direct solution or 2 for Realtime progress: ").strip()
+    dp_node_capacities = copy.deepcopy(node_capacities)
+    if mode == "1":
+        dp_min_time_with_procedure(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
+    elif mode == "2":
+        print("--- Realtime progress mode selected ---")
+        # Placeholder for realtime method, to be implemented next
+        # You can define: realtime_progress(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
+    else:
+        print("Invalid option. Please run again and select 1 or 2.")
