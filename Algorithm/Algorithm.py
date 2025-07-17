@@ -81,7 +81,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=100, location='Dump_site')
+truck = Truck(truck_id=1, capacity=50, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -183,7 +183,6 @@ def dp_min_time(node_capacities, truck_capacity, adjacency, dump_site):
         return min_time
 
     min_total_time = dp(initial_state, dump_site)
-    print(f"Minimal total travel time to deplete all mines: {min_total_time}s")
 
 def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_site):
     mines = [node for node in node_capacities if node != dump_site]
@@ -238,7 +237,6 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
         return min_time
 
     min_total_time = dp(initial_state, dump_site)
-    print(f"Minimal total travel time to deplete all mines: {min_total_time}s\n")
     # Reconstruct procedure
     print("--- DP-based Optimal Truck Procedure ---")
     state = initial_state
@@ -279,6 +277,5 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
     print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {min_total_time}s.")
 
 # --- Run DP-based optimizer with procedure ---
-print("\n--- DP-based Minimal Time Calculation & Optimal Procedure ---")
 dp_node_capacities = copy.deepcopy(node_capacities)
 dp_min_time_with_procedure(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
