@@ -84,7 +84,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=100, location='Dump_site')
+truck = Truck(truck_id=1, capacity=50, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -253,8 +253,8 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
             break
         order, mines_order, route, trip_time = best_trip
         trip_mines = [mines[i] for i in order]
-        # Print full route as requested (with return to first mine before dump_site)
-        print(f"Trip {trip_num}: Truck route: {' -> '.join([dump_site] + trip_mines + [trip_mines[0], dump_site])} (Trip time: {trip_time}s)")
+        # Print correct route: Dump_site -> mines in order -> Dump_site
+        print(f"Trip {trip_num}: Truck route: {dump_site} -> {' -> '.join(trip_mines)} -> {dump_site} (Trip time: {trip_time}s)")
         remaining_capacity = truck_capacity
         new_state = list(state)
         collected_this_trip = 0
@@ -263,7 +263,6 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
             print(f"{truck_location} -> {mine}: Time Taken: {t}s,")
             take = min(new_state[order[idx]], remaining_capacity)
             print(f"Truck loaded {take}kg coal at {mine}")
-            # Add load time
             t_load = LOAD_UNLOAD_TIME
             print(f"Loading time at {mine}: {t_load}s")
             t += t_load
@@ -272,10 +271,8 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
             new_state[order[idx]] -= take
             collected_this_trip += take
             truck_location = mine
-        # Final leg: from last mine to dump_site, via first mine if needed
         t, path = dijkstra(adjacency, truck_location, dump_site)
         print(f"{truck_location} -> {' -> '.join(path[1:])}: Time Taken: {t}s")
-        # Add unload time
         t_unload = LOAD_UNLOAD_TIME
         print(f"Truck unloaded at {dump_site}: Collected: {collected_this_trip}kg")
         print(f"Unloading time at {dump_site}: {t_unload}s")
@@ -286,7 +283,6 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
-    # Print correct total time using cumulative_time
     print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {cumulative_time}s.")
 
 def print_truck_table(truck_id, status, progress, percent, capacity):
