@@ -7,6 +7,9 @@ import functools
 import itertools
 import copy
 
+# Load/unload time in seconds (can be changed for testing)
+LOAD_UNLOAD_TIME = 0
+
 # Read edges from CSV
 edges = []
 with open('edges.csv', 'r') as f:
@@ -81,7 +84,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=50, location='Dump_site')
+truck = Truck(truck_id=1, capacity=100, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -261,7 +264,7 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
             take = min(new_state[order[idx]], remaining_capacity)
             print(f"Truck loaded {take}kg coal at {mine}")
             # Add load time
-            t_load = 5
+            t_load = LOAD_UNLOAD_TIME
             print(f"Loading time at {mine}: {t_load}s")
             t += t_load
             cumulative_time += t_load
@@ -273,7 +276,7 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
         t, path = dijkstra(adjacency, truck_location, dump_site)
         print(f"{truck_location} -> {' -> '.join(path[1:])}: Time Taken: {t}s")
         # Add unload time
-        t_unload = 5
+        t_unload = LOAD_UNLOAD_TIME
         print(f"Truck unloaded at {dump_site}: Collected: {collected_this_trip}kg")
         print(f"Unloading time at {dump_site}: {t_unload}s")
         t += t_unload
@@ -297,7 +300,6 @@ def print_truck_table(truck_id, status, progress, percent, capacity):
 | Current Capacity: {capacity:<5}Kg                   |
 +----------------------+----------------------+
 """
-    # Clear screen and move cursor to top-left
     print('\033[H\033[J', end='')
     print(table, end='')
 
@@ -308,7 +310,6 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
     initial_state = tuple(node_capacities[mine] for mine in mines)
     memo = {}
     choice = {}
-
     def dp(state, truck_location):
         key = (state, truck_location)
         if key in memo:
@@ -355,7 +356,6 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
     truck_location = dump_site
     trip_num = 1
     cumulative_time = 0
-    # Print initial empty table
     print('\n' * 6)
     while not all(coal == 0 for coal in state):
         key = (state, truck_location)
@@ -375,11 +375,14 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
                 print_truck_table(1, f"Route: {truck_location} -> {mine}", progress, percent, remaining_capacity)
                 time.sleep(1)
             take = min(new_state[order[idx]], remaining_capacity)
-            for sec in range(1, 6):
-                progress = int((sec/5)*22)
-                percent = int((sec/5)*100)
-                print_truck_table(1, f"Loading coal {mine}", progress, percent, remaining_capacity)
-                time.sleep(1)
+            if LOAD_UNLOAD_TIME > 0:
+                for sec in range(1, LOAD_UNLOAD_TIME + 1):
+                    progress = int((sec/LOAD_UNLOAD_TIME)*22)
+                    percent = int((sec/LOAD_UNLOAD_TIME)*100)
+                    print_truck_table(1, f"Loading coal {mine}", progress, percent, remaining_capacity)
+                    time.sleep(1)
+            else:
+                print_truck_table(1, f"Loading coal {mine}", 22, 100, remaining_capacity)
             remaining_capacity -= take
             new_state[order[idx]] -= take
             collected_this_trip += take
@@ -390,12 +393,15 @@ def realtime_progress(node_capacities, truck_capacity, adjacency, dump_site):
             percent = int((sec/t)*100)
             print_truck_table(1, f"Route: {truck_location} -> Dump_site", progress, percent, remaining_capacity)
             time.sleep(1)
-        for sec in range(1, 6):
-            progress = int((sec/5)*22)
-            percent = int((sec/5)*100)
-            print_truck_table(1, f"Unloading Coal", progress, percent, remaining_capacity)
-            time.sleep(1)
-        cumulative_time += trip_time + 5*len(trip_mines) + 5
+        if LOAD_UNLOAD_TIME > 0:
+            for sec in range(1, LOAD_UNLOAD_TIME + 1):
+                progress = int((sec/LOAD_UNLOAD_TIME)*22)
+                percent = int((sec/LOAD_UNLOAD_TIME)*100)
+                print_truck_table(1, f"Unloading Coal", progress, percent, remaining_capacity)
+                time.sleep(1)
+        else:
+            print_truck_table(1, f"Unloading Coal", 22, 100, remaining_capacity)
+        cumulative_time += trip_time + LOAD_UNLOAD_TIME*len(trip_mines) + LOAD_UNLOAD_TIME
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
