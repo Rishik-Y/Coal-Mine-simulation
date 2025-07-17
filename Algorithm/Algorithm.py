@@ -81,7 +81,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=50, location='Dump_site')
+truck = Truck(truck_id=1, capacity=100, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -232,7 +232,7 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
                     total_time = time + dp(tuple(new_state), dump_site)
                     if total_time < min_time:
                         min_time = total_time
-                        best_trip = (order, [mines[i] for i in order], route, time, coal_to_pick)
+                        best_trip = (order, [mines[i] for i in order], route, time)
         memo[key] = min_time
         choice[key] = best_trip
         return min_time
@@ -244,32 +244,35 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
     state = initial_state
     truck_location = dump_site
     trip_num = 1
-    current_time = 0
+    cumulative_time = 0
     while not all(coal == 0 for coal in state):
         key = (state, truck_location)
         best_trip = choice[key]
         if best_trip is None:
             break
-        order, mines_order, route, trip_time, coal_to_pick = best_trip
-        print(f"Trip {trip_num}: Truck route: {' -> '.join(route)} (Trip time: {trip_time}s)")
+        order, mines_order, route, trip_time = best_trip
+        trip_mines = [mines[i] for i in order]
+        # Print full route as requested (with return to first mine before dump_site)
+        print(f"Trip {trip_num}: Truck route: {' -> '.join([dump_site] + trip_mines + [trip_mines[0], dump_site])} (Trip time: {trip_time}s)")
         remaining_capacity = truck_capacity
         new_state = list(state)
-        trip_loaded = 0
-        for idx, (i, mine) in enumerate(zip(order, mines_order)):
+        collected_this_trip = 0
+        for idx, mine in enumerate(trip_mines):
             t, path = dijkstra(adjacency, truck_location, mine)
-            print(f"  {truck_location} -> {mine}: Time Taken: {t}s,")
-            take = min(new_state[i], remaining_capacity)
-            print(f"  Truck loaded {take}kg coal at {mine}")
+            print(f"{truck_location} -> {mine}: Time Taken: {t}s,")
+            take = min(new_state[order[idx]], remaining_capacity)
+            print(f"Truck loaded {take}kg coal at {mine}")
             remaining_capacity -= take
-            new_state[i] -= take
+            new_state[order[idx]] -= take
+            collected_this_trip += take
             truck_location = mine
-            trip_loaded += take
-        # Last leg: from last mine to dump site
+        # Final leg: from last mine to dump_site, via first mine if needed
         t, path = dijkstra(adjacency, truck_location, dump_site)
-        print(f"  {truck_location} -> {dump_site}: Time Taken: {t}s")
-        print(f"  Truck unloaded at {dump_site}: Collected: {trip_loaded}kg")
-        current_time += trip_time
-        print(f"  Current Time: {current_time}s\n")
+        # Print the full path from last mine to dump_site
+        print(f"{truck_location} -> {' -> '.join(path[1:])}: Time Taken: {t}s")
+        print(f"Truck unloaded at {dump_site}: Collected: {collected_this_trip}kg")
+        cumulative_time += trip_time
+        print(f"Current Time: {cumulative_time}s\n")
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
