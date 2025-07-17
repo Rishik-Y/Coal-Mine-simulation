@@ -78,7 +78,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=50, location='Dump_site')
+truck = Truck(truck_id=1, capacity=70, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -108,6 +108,34 @@ def simulate_truck(truck, mines, dump_site):
         truck.loaded = 0
     print(f"Simulation complete. Total time: {truck.total_time}s. Final dump site coal: {node_capacities[dump_site]}kg")
 
+# Simulate truck visiting each mine until all coal is depleted
+def simulate_truck_deplete(truck, mines, dump_site):
+    while any(node_capacities[mine] > 0 for mine in mines):
+        for mine in mines:
+            while node_capacities[mine] > 0:
+                # Fastest path from current location to mine
+                time_to_mine, path_to_mine = dijkstra(adjacency, truck.location, mine)
+                print(f"Truck Route: {' -> '.join(path_to_mine)}: Time Taken: {time_to_mine}s")
+                truck.total_time += time_to_mine
+                truck.route += path_to_mine[1:]  # skip current location
+                truck.location = mine
+                # Load coal
+                load_amount = min(truck.capacity, node_capacities[mine])
+                truck.loaded = load_amount
+                node_capacities[mine] -= load_amount
+                print(f"Truck loaded {load_amount}kg coal at {mine}")
+                # Fastest path back to dump site
+                time_to_dump, path_to_dump = dijkstra(adjacency, truck.location, dump_site)
+                print(f"Truck Route: {' -> '.join(path_to_dump)}: Time Taken: {time_to_dump}s")
+                truck.total_time += time_to_dump
+                truck.route += path_to_dump[1:]
+                truck.location = dump_site
+                # Unload coal
+                node_capacities[dump_site] += truck.loaded
+                print(f"Truck unloaded: {truck.loaded}kg coal at {dump_site}")
+                truck.loaded = 0
+    print(f"Simulation complete. Total time: {truck.total_time}s. Final dump site coal: {node_capacities[dump_site]}kg")
+
 # List of mines (exclude dump site)
 mines = [node for node in node_capacities if node != 'Dump_site']
-simulate_truck(truck, mines, 'Dump_site')
+simulate_truck_deplete(truck, mines, 'Dump_site')
