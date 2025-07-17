@@ -232,7 +232,7 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
                     total_time = time + dp(tuple(new_state), dump_site)
                     if total_time < min_time:
                         min_time = total_time
-                        best_trip = (order, [mines[i] for i in order], route, time)
+                        best_trip = (order, [mines[i] for i in order], route, time, coal_to_pick)
         memo[key] = min_time
         choice[key] = best_trip
         return min_time
@@ -244,26 +244,32 @@ def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_
     state = initial_state
     truck_location = dump_site
     trip_num = 1
+    current_time = 0
     while not all(coal == 0 for coal in state):
         key = (state, truck_location)
         best_trip = choice[key]
         if best_trip is None:
             break
-        order, mines_order, route, trip_time = best_trip
+        order, mines_order, route, trip_time, coal_to_pick = best_trip
         print(f"Trip {trip_num}: Truck route: {' -> '.join(route)} (Trip time: {trip_time}s)")
         remaining_capacity = truck_capacity
         new_state = list(state)
-        for i, mine in zip(order, mines_order):
+        trip_loaded = 0
+        for idx, (i, mine) in enumerate(zip(order, mines_order)):
             t, path = dijkstra(adjacency, truck_location, mine)
-            print(f"  {truck_location} -> {mine}: {t}s, route: {' -> '.join(path)}")
+            print(f"  {truck_location} -> {mine}: Time Taken: {t}s,")
             take = min(new_state[i], remaining_capacity)
             print(f"  Truck loaded {take}kg coal at {mine}")
             remaining_capacity -= take
             new_state[i] -= take
             truck_location = mine
+            trip_loaded += take
+        # Last leg: from last mine to dump site
         t, path = dijkstra(adjacency, truck_location, dump_site)
-        print(f"  {truck_location} -> {dump_site}: {t}s, route: {' -> '.join(path)}")
-        print(f"  Truck unloaded at {dump_site}\n")
+        print(f"  {truck_location} -> {dump_site}: Time Taken: {t}s")
+        print(f"  Truck unloaded at {dump_site}: Collected: {trip_loaded}kg")
+        current_time += trip_time
+        print(f"  Current Time: {current_time}s\n")
         truck_location = dump_site
         state = tuple(new_state)
         trip_num += 1
