@@ -3,6 +3,9 @@ from collections import defaultdict
 import networkx as nx
 import matplotlib.pyplot as plt
 import heapq
+import functools
+import itertools
+import copy
 
 # Read edges from CSV
 edges = []
@@ -78,7 +81,7 @@ for src, dst, dist in edges:
     adjacency[dst].append((src, dist))
 
 # Initialize truck
-truck = Truck(truck_id=1, capacity=70, location='Dump_site')
+truck = Truck(truck_id=1, capacity=50, location='Dump_site')
 
 # Simulate truck visiting each mine, loading, and returning to dump site
 def simulate_truck(truck, mines, dump_site):
@@ -136,6 +139,137 @@ def simulate_truck_deplete(truck, mines, dump_site):
                 truck.loaded = 0
     print(f"Simulation complete. Total time: {truck.total_time}s. Final dump site coal: {node_capacities[dump_site]}kg")
 
-# List of mines (exclude dump site)
-mines = [node for node in node_capacities if node != 'Dump_site']
-simulate_truck_deplete(truck, mines, 'Dump_site')
+def dp_min_time(node_capacities, truck_capacity, adjacency, dump_site):
+    mines = [node for node in node_capacities if node != dump_site]
+    mine_indices = {mine: i for i, mine in enumerate(mines)}
+    initial_state = tuple(node_capacities[mine] for mine in mines)
+
+    @functools.lru_cache(maxsize=None)
+    def dp(state, truck_location):
+        # If all mines are depleted
+        if all(coal == 0 for coal in state):
+            # Return time to dump site if not already there
+            if truck_location == dump_site:
+                return 0
+            else:
+                t, _ = dijkstra(adjacency, truck_location, dump_site)
+                return t
+        min_time = float('inf')
+        # Try all possible combinations of mines to visit in one trip
+        for r in range(1, len(mines)+1):
+            for combo in itertools.combinations([i for i, coal in enumerate(state) if coal > 0], r):
+                # Can truck carry all selected coal?
+                coal_to_pick = [min(state[i], truck.capacity) for i in combo]
+                if sum(coal_to_pick) > truck.capacity:
+                    continue
+                # Try all orders
+                for order in itertools.permutations(combo):
+                    route = [truck_location] + [mines[i] for i in order] + [dump_site]
+                    time = 0
+                    for i in range(len(route)-1):
+                        t, _ = dijkstra(adjacency, route[i], route[i+1])
+                        time += t
+                    # Update state
+                    new_state = list(state)
+                    remaining_capacity = truck.capacity
+                    for i in order:
+                        take = min(new_state[i], remaining_capacity)
+                        remaining_capacity -= take
+                        new_state[i] -= take
+                    # Recurse
+                    total_time = time + dp(tuple(new_state), dump_site)
+                    if total_time < min_time:
+                        min_time = total_time
+        return min_time
+
+    min_total_time = dp(initial_state, dump_site)
+    print(f"Minimal total travel time to deplete all mines: {min_total_time}s")
+
+def dp_min_time_with_procedure(node_capacities, truck_capacity, adjacency, dump_site):
+    mines = [node for node in node_capacities if node != dump_site]
+    initial_state = tuple(node_capacities[mine] for mine in mines)
+    memo = {}
+    choice = {}
+
+    def dp(state, truck_location):
+        key = (state, truck_location)
+        if key in memo:
+            return memo[key]
+        if all(coal == 0 for coal in state):
+            if truck_location == dump_site:
+                memo[key] = 0
+                choice[key] = None
+                return 0
+            else:
+                t, _ = dijkstra(adjacency, truck_location, dump_site)
+                memo[key] = t
+                choice[key] = ([], [], [truck_location, dump_site], t)
+                return t
+        min_time = float('inf')
+        best_trip = None
+        # Try all possible combinations of mines to visit in one trip
+        for r in range(1, len(mines)+1):
+            for combo in itertools.combinations([i for i, coal in enumerate(state) if coal > 0], r):
+                # Can truck carry all selected coal?
+                coal_to_pick = [min(state[i], truck_capacity) for i in combo]
+                if sum(coal_to_pick) > truck_capacity:
+                    continue
+                # Try all orders
+                for order in itertools.permutations(combo):
+                    route = [truck_location] + [mines[i] for i in order] + [dump_site]
+                    time = 0
+                    for i in range(len(route)-1):
+                        t, _ = dijkstra(adjacency, route[i], route[i+1])
+                        time += t
+                    # Update state
+                    new_state = list(state)
+                    remaining_capacity = truck_capacity
+                    for i in order:
+                        take = min(new_state[i], remaining_capacity)
+                        remaining_capacity -= take
+                        new_state[i] -= take
+                    # Recurse
+                    total_time = time + dp(tuple(new_state), dump_site)
+                    if total_time < min_time:
+                        min_time = total_time
+                        best_trip = (order, [mines[i] for i in order], route, time)
+        memo[key] = min_time
+        choice[key] = best_trip
+        return min_time
+
+    min_total_time = dp(initial_state, dump_site)
+    print(f"Minimal total travel time to deplete all mines: {min_total_time}s\n")
+    # Reconstruct procedure
+    print("--- DP-based Optimal Truck Procedure ---")
+    state = initial_state
+    truck_location = dump_site
+    trip_num = 1
+    while not all(coal == 0 for coal in state):
+        key = (state, truck_location)
+        best_trip = choice[key]
+        if best_trip is None:
+            break
+        order, mines_order, route, trip_time = best_trip
+        print(f"Trip {trip_num}: Truck route: {' -> '.join(route)} (Trip time: {trip_time}s)")
+        remaining_capacity = truck_capacity
+        new_state = list(state)
+        for i, mine in zip(order, mines_order):
+            t, path = dijkstra(adjacency, truck_location, mine)
+            print(f"  {truck_location} -> {mine}: {t}s, route: {' -> '.join(path)}")
+            take = min(new_state[i], remaining_capacity)
+            print(f"  Truck loaded {take}kg coal at {mine}")
+            remaining_capacity -= take
+            new_state[i] -= take
+            truck_location = mine
+        t, path = dijkstra(adjacency, truck_location, dump_site)
+        print(f"  {truck_location} -> {dump_site}: {t}s, route: {' -> '.join(path)}")
+        print(f"  Truck unloaded at {dump_site}\n")
+        truck_location = dump_site
+        state = tuple(new_state)
+        trip_num += 1
+    print(f"All mines depleted. Total trips: {trip_num-1}. Total time: {min_total_time}s.")
+
+# --- Run DP-based optimizer with procedure ---
+print("\n--- DP-based Minimal Time Calculation & Optimal Procedure ---")
+dp_node_capacities = copy.deepcopy(node_capacities)
+dp_min_time_with_procedure(dp_node_capacities, truck.capacity, adjacency, 'Dump_site')
