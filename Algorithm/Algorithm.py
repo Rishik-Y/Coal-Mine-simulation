@@ -275,10 +275,10 @@ def print_multi_truck_table(truck_states, current_time):
 
         table = f"""
 +----------------------+----------------------+
-| Truck {truck_id + 1:<3}              |                      |
-| Status: {status:<22} |
-| Progress: {percent:3}% [{bar}] |
-| Current Capacity: {capacity:<5}Kg |
+| Truck {truck_id + 1:<3}                                   |
+| Status: {status:<22}              |
+| Progress: {percent:3}% [{bar}]     |
+| Current Capacity: {capacity:<5}Kg                   |
 +----------------------+----------------------+
 """
         print(table)
